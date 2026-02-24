@@ -1,12 +1,16 @@
 # Portfolio Risk Collapse Early Warning System
 
-Production-grade SaaS application for real-time portfolio risk monitoring with collapse early warning signals. Built with FastAPI, PostgreSQL, and a modular NumPy-powered risk engine.
+Production-grade SaaS application for real-time portfolio risk monitoring with collapse early warning signals. Built with FastAPI, PostgreSQL, Next.js, and a modular NumPy-powered risk engine. Features JWT authentication, SMTP/webhook alerts, and WebSocket live updates.
 
 ## Tech Stack
 
 - **Backend:** FastAPI + Uvicorn
+- **Frontend:** Next.js 14 + React 18 + TypeScript + Tailwind CSS + Recharts
 - **Database:** PostgreSQL 16 + SQLAlchemy 2.0 (async) + Alembic
 - **Risk Engine:** NumPy, SciPy, Pandas
+- **Auth:** JWT (python-jose) + bcrypt password hashing
+- **Real-time:** WebSocket push updates via ConnectionManager
+- **Alerts:** SMTP email + webhook (with HMAC signing)
 - **Validation:** Pydantic v2
 - **Containerization:** Docker + Docker Compose
 
@@ -15,18 +19,59 @@ Production-grade SaaS application for real-time portfolio risk monitoring with c
 ```
 app/
 ├── api/v1/endpoints/       # FastAPI route handlers
+│   ├── auth.py             # Register, login, me
+│   ├── portfolios.py       # Portfolio CRUD (user-scoped)
+│   ├── risk.py             # Risk compute + history
+│   └── ws.py               # WebSocket connections
 ├── models/                 # SQLAlchemy ORM models
+│   ├── user.py             # User (email, hashed_password)
+│   ├── portfolio.py        # Portfolio (user_id FK), Holding, PriceHistory
+│   └── risk_snapshot.py    # RiskSnapshot
 ├── schemas/                # Pydantic request/response models
+│   ├── auth.py             # UserCreate, UserLogin, TokenResponse
+│   ├── portfolio.py        # Portfolio schemas
+│   └── risk.py             # RiskReport, RiskHistory
 ├── repositories/           # Data access layer (async)
 ├── services/               # Business logic orchestration
-└── risk_engine/            # Pure numpy computation modules
-    ├── volatility.py       # Rolling volatility (30D)
-    ├── correlation.py      # Pairwise correlation matrix
-    ├── beta.py             # Portfolio beta + downside beta
-    ├── var.py              # 95% Value at Risk
-    ├── stress.py           # Stress tests (-3%, -5%, -8%)
-    ├── composite.py        # Weighted composite score (0-100)
-    └── acceleration.py     # Risk acceleration + early warnings
+│   ├── auth_service.py     # JWT + password verification
+│   ├── alert_service.py    # SMTP + webhook alerts
+│   ├── portfolio_service.py
+│   └── risk_service.py
+├── risk_engine/            # Pure numpy computation modules
+│   ├── volatility.py       # Rolling volatility (30D)
+│   ├── correlation.py      # Pairwise correlation matrix
+│   ├── beta.py             # Portfolio beta + downside beta
+│   ├── var.py              # 95% Value at Risk
+│   ├── stress.py           # Stress tests (-3%, -5%, -8%)
+│   ├── composite.py        # Weighted composite score (0-100)
+│   └── acceleration.py     # Risk acceleration + early warnings
+└── websocket.py            # ConnectionManager singleton
+
+frontend/src/
+├── app/
+│   ├── layout.tsx          # Root layout with AuthProvider + NavBar
+│   ├── page.tsx            # Landing page
+│   ├── login/page.tsx      # Login form
+│   ├── register/page.tsx   # Registration form
+│   ├── dashboard/page.tsx  # Risk dashboard with WebSocket live updates
+│   └── portfolios/page.tsx # Portfolio management
+├── components/
+│   ├── AuthProvider.tsx     # Auth context (token, user, login/logout)
+│   ├── NavBar.tsx           # Dynamic navigation
+│   ├── RiskGauge.tsx        # Donut chart risk gauge
+│   ├── MetricCard.tsx       # Metric display card
+│   ├── CorrelationHeatmap.tsx
+│   ├── StressTestChart.tsx
+│   └── RiskTrendChart.tsx
+├── lib/
+│   ├── api.ts              # API client with Bearer auth + 401 handling
+│   └── types.ts            # TypeScript interfaces
+├── middleware.ts            # Edge middleware (auth redirect)
+└── ...
+
+scripts/
+├── market_worker.py        # Yahoo Finance price fetcher + risk compute + alerts + WS notify
+└── seed.py                 # Sample data seeder
 ```
 
 ## Risk Features
@@ -72,7 +117,11 @@ app/
 docker compose up -d
 ```
 
-This starts PostgreSQL and the app, runs migrations automatically, and serves the API at `http://localhost:8000`.
+This starts PostgreSQL, the FastAPI backend, and the Next.js frontend. Migrations run automatically.
+
+- **API:** http://localhost:8000
+- **Frontend:** http://localhost:3000
+- **Swagger docs:** http://localhost:8000/docs
 
 ### Local Development
 
@@ -80,7 +129,7 @@ This starts PostgreSQL and the app, runs migrations automatically, and serves th
 # 1. Start PostgreSQL
 docker compose up -d db
 
-# 2. Install dependencies
+# 2. Install backend dependencies
 pip install -r requirements.txt
 
 # 3. Configure environment
@@ -92,33 +141,51 @@ alembic upgrade head
 # 5. Seed sample data
 python -m scripts.seed
 
-# 6. Start the server
+# 6. Start the API server
 uvicorn app.main:app --reload
+
+# 7. Start the frontend (separate terminal)
+cd frontend && npm install && npm run dev
 ```
 
 ### Run Tests
 
 ```bash
-pip install pytest pytest-asyncio pytest-cov scipy
 python -m pytest tests/ -v
 ```
+
+## Authentication
+
+All portfolio and risk endpoints require a JWT Bearer token. The auth flow:
+
+1. **Register** a new user
+2. **Login** to get a JWT token
+3. **Include** the token in all requests as `Authorization: Bearer <token>`
+
+Tokens expire after 24 hours (configurable via `JWT_EXPIRY_MINUTES`).
+
+A default admin user is created by the migration:
+- **Email:** `admin@riskmonitor.local`
+- **Password:** `admin123`
 
 ## API Endpoints
 
 Base path: `/api/v1`
 
-### Health
+### Auth
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Service health check |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/auth/register` | No | Create a new user account |
+| POST | `/auth/login` | No | Login and receive JWT token |
+| GET | `/auth/me` | Yes | Get current user profile |
 
-### Portfolios
+### Portfolios (all require auth)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/portfolios` | Create portfolio with optional holdings |
-| GET | `/portfolios` | List all portfolios |
+| GET | `/portfolios` | List user's portfolios |
 | GET | `/portfolios/{id}` | Get portfolio details |
 | PATCH | `/portfolios/{id}` | Update portfolio metadata |
 | DELETE | `/portfolios/{id}` | Delete portfolio |
@@ -127,18 +194,46 @@ Base path: `/api/v1`
 | GET | `/portfolios/{id}/prices/{symbol}` | Get price history |
 | POST | `/portfolios/prices/upload` | Bulk upload price data |
 
-### Risk Analysis
+### Risk Analysis (all require auth)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/risk/{id}/compute` | Compute full risk report |
 | GET | `/risk/{id}/history` | Get risk score history |
 
-### Example: Create Portfolio
+### WebSocket
+
+| Protocol | Path | Description |
+|----------|------|-------------|
+| WS | `/ws/{portfolio_id}` | Live risk updates for a portfolio |
+
+### Health
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Service health check |
+
+### Example: Register and Login
+
+```bash
+# Register
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "mypassword", "full_name": "Jane Doe"}'
+
+# Login
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "mypassword"}'
+# Returns: {"access_token": "eyJ...", "token_type": "bearer"}
+```
+
+### Example: Create Portfolio (with auth)
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/portfolios \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJ..." \
   -d '{
     "name": "My Growth Portfolio",
     "holdings": [
@@ -152,7 +247,8 @@ curl -X POST http://localhost:8000/api/v1/portfolios \
 ### Example: Compute Risk
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/risk/{portfolio_id}/compute
+curl -X POST http://localhost:8000/api/v1/risk/{portfolio_id}/compute \
+  -H "Authorization: Bearer eyJ..."
 ```
 
 Returns:
@@ -180,6 +276,35 @@ Returns:
 }
 ```
 
+## Alerts
+
+Alerts are opt-in and triggered when risk levels match `ALERT_ON_RISK_LEVELS` (default: `HIGH,CRITICAL`).
+
+**SMTP Email:** Set `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, and `ALERT_EMAIL_TO` to enable HTML email alerts.
+
+**Webhook:** Set `WEBHOOK_URL` to receive JSON POST notifications. Optionally set `WEBHOOK_SECRET` for HMAC-SHA256 signed payloads (header: `X-Signature-SHA256`).
+
+## WebSocket Live Updates
+
+The dashboard connects to `ws://localhost:8000/api/v1/ws/{portfolio_id}` and receives real-time risk report updates when:
+
+- A user clicks "Compute Risk" in the dashboard
+- The market worker completes a risk computation cycle
+
+The connection includes a 30-second keepalive ping. A green "Live" indicator appears when connected.
+
+## Market Worker
+
+The market worker fetches real prices from Yahoo Finance, updates holdings, computes risk, sends alerts, and notifies WebSocket clients.
+
+```bash
+# One-shot run
+python -m scripts.market_worker
+
+# Continuous loop (every hour)
+python -m scripts.market_worker --loop --interval 3600
+```
+
 ## Configuration
 
 All settings are configurable via environment variables or `.env` file:
@@ -194,6 +319,19 @@ All settings are configurable via environment variables or `.env` file:
 | `VAR_CONFIDENCE` | `0.95` | VaR confidence level |
 | `TRADING_DAYS_PER_YEAR` | `252` | Annualization factor |
 | `RISK_WEIGHT_*` | See config | Composite score weights |
+| `JWT_SECRET` | `change-me-in-production` | JWT signing secret |
+| `JWT_ALGORITHM` | `HS256` | JWT algorithm |
+| `JWT_EXPIRY_MINUTES` | `1440` | Token expiry (24h) |
+| `SMTP_HOST` | *(empty)* | SMTP server host |
+| `SMTP_PORT` | `587` | SMTP server port |
+| `SMTP_USER` | *(empty)* | SMTP username |
+| `SMTP_PASS` | *(empty)* | SMTP password |
+| `SMTP_FROM` | *(empty)* | Sender email address |
+| `ALERT_EMAIL_TO` | *(empty)* | Recipient email address |
+| `WEBHOOK_URL` | *(empty)* | Webhook endpoint URL |
+| `WEBHOOK_SECRET` | *(empty)* | HMAC signing secret |
+| `ALERT_ON_RISK_LEVELS` | `HIGH,CRITICAL` | Risk levels that trigger alerts |
+| `API_BASE_URL` | `http://localhost:8000` | API URL for worker WS notifications |
 
 ## API Documentation
 
