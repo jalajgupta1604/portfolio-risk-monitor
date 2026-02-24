@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
@@ -22,6 +22,8 @@ function DashboardContent() {
   const [computing, setComputing] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [error, setError] = useState("");
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const loadPortfolios = useCallback(async () => {
     try {
@@ -57,6 +59,62 @@ function DashboardContent() {
     }
   }, [selectedId, loadHistory]);
 
+  // WebSocket live updates
+  useEffect(() => {
+    if (!selectedId) return;
+
+    const wsBase = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+    const wsUrl = `${wsBase}/api/v1/ws/${selectedId}`;
+
+    let ws: WebSocket;
+    let pingInterval: ReturnType<typeof setInterval>;
+
+    const connect = () => {
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setWsConnected(true);
+        // Keepalive ping every 30s
+        pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send("ping");
+          }
+        }, 30000);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as RiskReport;
+          setReport(data);
+          loadHistory(selectedId);
+        } catch {
+          // ignore non-JSON messages
+        }
+      };
+
+      ws.onclose = () => {
+        setWsConnected(false);
+        clearInterval(pingInterval);
+      };
+
+      ws.onerror = () => {
+        setWsConnected(false);
+      };
+    };
+
+    connect();
+
+    return () => {
+      clearInterval(pingInterval);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setWsConnected(false);
+    };
+  }, [selectedId, loadHistory]);
+
   const computeRisk = async () => {
     if (!selectedId) return;
     setComputing(true);
@@ -81,7 +139,15 @@ function DashboardContent() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Risk Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-1">Monitor portfolio risk metrics and early warning signals</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Monitor portfolio risk metrics and early warning signals
+            {wsConnected && (
+              <span className="ml-2 inline-flex items-center gap-1 text-green-600">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                Live
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <select

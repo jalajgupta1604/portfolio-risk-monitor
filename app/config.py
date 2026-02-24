@@ -24,5 +24,25 @@ class Settings(BaseSettings):
     RISK_WEIGHT_CORRELATION: float = 0.10
     RISK_WEIGHT_STRESS: float = 0.15
 
+    # Alerts (opt-in: leave empty to disable)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASS: str = ""
+    SMTP_FROM: str = ""
+    SMTP_USE_TLS: bool = True
+    ALERT_EMAIL_TO: str = ""
+    WEBHOOK_URL: str = ""
+    WEBHOOK_SECRET: str = ""
+    ALERT_ON_RISK_LEVELS: str = "HIGH,CRITICAL"
+
+    # JWT Authentication
+    JWT_SECRET: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRY_MINUTES: int = 1440  # 24 hours
+
+    # WebSocket / API
+    API_BASE_URL: str = "http://localhost:8000"
+
 
 settings = Settings()

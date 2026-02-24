@@ -14,6 +14,9 @@ class Portfolio(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(String(1000))
     created_at: Mapped[datetime] = mapped_column(
@@ -23,6 +26,7 @@ class Portfolio(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    owner: Mapped["User"] = relationship(back_populates="portfolios", lazy="selectin")  # noqa: F821
     holdings: Mapped[list["Holding"]] = relationship(
         back_populates="portfolio", cascade="all, delete-orphan", lazy="selectin"
     )

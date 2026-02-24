@@ -23,6 +23,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import httpx
 import yfinance as yf
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -30,6 +31,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.models import Holding, Portfolio, PriceHistory
+from app.services.alert_service import send_alerts
 from app.services.risk_service import RiskService
 
 logging.basicConfig(
@@ -173,6 +175,24 @@ async def compute_risk_all_portfolios(session: AsyncSession) -> int:
             if report.early_warning_signals:
                 for signal in report.early_warning_signals:
                     logger.warning("  ALERT [%s]: %s", portfolio.name, signal)
+
+            # Send alerts (email + webhook) if risk level qualifies
+            await send_alerts(
+                portfolio_name=portfolio.name,
+                portfolio_id=str(portfolio.id),
+                risk_level=report.risk_level.value,
+                composite_score=report.composite_score,
+                signals=report.early_warning_signals,
+            )
+
+            # Notify WebSocket clients via API (fail silently if API not running)
+            try:
+                notify_url = f"{settings.API_BASE_URL}/api/v1/ws/notify/{portfolio.id}"
+                async with httpx.AsyncClient(timeout=5) as client:
+                    await client.post(notify_url, json=report.model_dump(mode="json"))
+                    logger.info("  WS notify sent for %s", portfolio.name)
+            except Exception:
+                logger.debug("  WS notify skipped (API server not reachable)")
 
             computed += 1
         except Exception as e:

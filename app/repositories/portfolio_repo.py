@@ -12,23 +12,31 @@ class PortfolioRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create(self, name: str, description: str | None = None) -> Portfolio:
-        portfolio = Portfolio(name=name, description=description)
+    async def create(
+        self, name: str, description: str | None = None, user_id: uuid.UUID | None = None
+    ) -> Portfolio:
+        portfolio = Portfolio(name=name, description=description, user_id=user_id)
         self.session.add(portfolio)
         await self.session.flush()
         return portfolio
 
-    async def get_by_id(self, portfolio_id: uuid.UUID) -> Portfolio | None:
+    async def get_by_id(
+        self, portfolio_id: uuid.UUID, user_id: uuid.UUID | None = None
+    ) -> Portfolio | None:
         stmt = (
             select(Portfolio)
             .options(selectinload(Portfolio.holdings))
             .where(Portfolio.id == portfolio_id)
         )
+        if user_id is not None:
+            stmt = stmt.where(Portfolio.user_id == user_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def list_all(self) -> list[Portfolio]:
+    async def list_all(self, user_id: uuid.UUID | None = None) -> list[Portfolio]:
         stmt = select(Portfolio).order_by(Portfolio.created_at.desc())
+        if user_id is not None:
+            stmt = stmt.where(Portfolio.user_id == user_id)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

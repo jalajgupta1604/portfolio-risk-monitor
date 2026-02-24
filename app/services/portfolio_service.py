@@ -22,8 +22,12 @@ class PortfolioService:
         self.repo = PortfolioRepository(session)
         self.price_repo = PriceHistoryRepository(session)
 
-    async def create_portfolio(self, data: PortfolioCreate) -> PortfolioResponse:
-        portfolio = await self.repo.create(name=data.name, description=data.description)
+    async def create_portfolio(
+        self, data: PortfolioCreate, user_id: uuid.UUID | None = None
+    ) -> PortfolioResponse:
+        portfolio = await self.repo.create(
+            name=data.name, description=data.description, user_id=user_id
+        )
 
         for h in data.holdings:
             await self.repo.add_holding(
@@ -33,32 +37,38 @@ class PortfolioService:
                 avg_buy_price=h.avg_buy_price,
             )
 
-        portfolio = await self._get_or_404(portfolio.id)
+        portfolio = await self._get_or_404(portfolio.id, user_id)
         return self._to_response(portfolio)
 
-    async def get_portfolio(self, portfolio_id: uuid.UUID) -> PortfolioResponse:
-        portfolio = await self._get_or_404(portfolio_id)
+    async def get_portfolio(
+        self, portfolio_id: uuid.UUID, user_id: uuid.UUID | None = None
+    ) -> PortfolioResponse:
+        portfolio = await self._get_or_404(portfolio_id, user_id)
         return self._to_response(portfolio)
 
-    async def list_portfolios(self) -> list[PortfolioSummary]:
-        portfolios = await self.repo.list_all()
+    async def list_portfolios(
+        self, user_id: uuid.UUID | None = None
+    ) -> list[PortfolioSummary]:
+        portfolios = await self.repo.list_all(user_id=user_id)
         return [self._to_summary(p) for p in portfolios]
 
     async def update_portfolio(
-        self, portfolio_id: uuid.UUID, data: PortfolioUpdate
+        self, portfolio_id: uuid.UUID, data: PortfolioUpdate, user_id: uuid.UUID | None = None
     ) -> PortfolioResponse:
-        portfolio = await self._get_or_404(portfolio_id)
+        portfolio = await self._get_or_404(portfolio_id, user_id)
         portfolio = await self.repo.update(portfolio, name=data.name, description=data.description)
         return self._to_response(portfolio)
 
-    async def delete_portfolio(self, portfolio_id: uuid.UUID) -> None:
-        await self._get_or_404(portfolio_id)
+    async def delete_portfolio(
+        self, portfolio_id: uuid.UUID, user_id: uuid.UUID | None = None
+    ) -> None:
+        await self._get_or_404(portfolio_id, user_id)
         await self.repo.delete(portfolio_id)
 
     async def add_holding(
-        self, portfolio_id: uuid.UUID, data: HoldingCreate
+        self, portfolio_id: uuid.UUID, data: HoldingCreate, user_id: uuid.UUID | None = None
     ) -> HoldingResponse:
-        await self._get_or_404(portfolio_id)
+        await self._get_or_404(portfolio_id, user_id)
         holding = await self.repo.add_holding(
             portfolio_id=portfolio_id,
             symbol=data.symbol,
@@ -75,9 +85,9 @@ class PortfolioService:
         )
 
     async def remove_holding(
-        self, portfolio_id: uuid.UUID, holding_id: uuid.UUID
+        self, portfolio_id: uuid.UUID, holding_id: uuid.UUID, user_id: uuid.UUID | None = None
     ) -> None:
-        await self._get_or_404(portfolio_id)
+        await self._get_or_404(portfolio_id, user_id)
         await self.repo.remove_holding(holding_id)
 
     async def upload_prices(self, data: BulkPriceUpload) -> int:
@@ -112,8 +122,10 @@ class PortfolioService:
             for p in prices
         ]
 
-    async def _get_or_404(self, portfolio_id: uuid.UUID) -> Portfolio:
-        portfolio = await self.repo.get_by_id(portfolio_id)
+    async def _get_or_404(
+        self, portfolio_id: uuid.UUID, user_id: uuid.UUID | None = None
+    ) -> Portfolio:
+        portfolio = await self.repo.get_by_id(portfolio_id, user_id=user_id)
         if not portfolio:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
