@@ -43,8 +43,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (res.status === 401) {
     clearToken();
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-      window.location.href = "/login";
+    if (typeof window !== "undefined") {
+      document.cookie = "has_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     }
     throw new Error("Unauthorized");
   }
