@@ -1,41 +1,45 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/components/AuthProvider";
+import { signIn, useSession } from "next-auth/react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, user, loading: authLoading } = useAuth();
+  const { data: session, status } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      router.replace("/portfolios");
-    }
-  }, [user, authLoading, router]);
+  if (status === "loading") return null;
+  if (session?.user) {
+    router.replace("/portfolios");
+    return null;
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await login({ email, password });
-      router.push("/portfolios");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+      if (result?.error) {
+        setError("Invalid email or password");
+      } else {
+        router.push("/portfolios");
+      }
+    } catch {
+      setError("Login failed");
     } finally {
       setLoading(false);
     }
   };
-
-  if (authLoading || user) {
-    return null;
-  }
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">

@@ -37,6 +37,8 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
       NEXT_PUBLIC_WS_URL: ws://localhost:8000
+      AUTH_SECRET: changeme-generate-a-real-secret-for-production
+      AUTH_TRUST_HOST: "true"
     depends_on:
       - app
 

@@ -3,11 +3,11 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/components/AuthProvider";
+import { signIn } from "next-auth/react";
+import { authApi } from "@/lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -19,8 +19,18 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
     try {
-      await register({ email, password, full_name: fullName || undefined });
-      router.push("/portfolios");
+      await authApi.register({ email, password, full_name: fullName || undefined });
+      // Auto-login via NextAuth after successful registration
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+      if (result?.error) {
+        setError("Account created but auto-login failed. Please sign in.");
+      } else {
+        router.push("/portfolios");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

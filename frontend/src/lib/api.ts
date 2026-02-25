@@ -8,46 +8,28 @@ import {
   RiskReport,
   RiskHistoryResponse,
   UserCreate,
-  UserLogin,
-  TokenResponse,
   User,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-// Token helpers
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("auth_token");
-}
+// Module-level token set by SessionSync from NextAuth session
+let _backendToken: string | null = null;
 
-export function setToken(token: string): void {
-  localStorage.setItem("auth_token", token);
-}
-
-export function clearToken(): void {
-  localStorage.removeItem("auth_token");
+export function setBackendToken(token: string | null): void {
+  _backendToken = token;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const token = getToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  if (_backendToken) {
+    headers["Authorization"] = `Bearer ${_backendToken}`;
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
     headers,
     ...options,
   });
-
-  if (res.status === 401) {
-    clearToken();
-    if (typeof window !== "undefined") {
-      document.cookie = "has_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    }
-    throw new Error("Unauthorized");
-  }
 
   if (!res.ok) {
     const body = await res.text();
@@ -57,21 +39,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-// Auth endpoints
+// Auth endpoints (used for registration only — login goes through NextAuth)
 export const authApi = {
   register: (data: UserCreate) =>
     request<User>("/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     }),
-
-  login: (data: UserLogin) =>
-    request<TokenResponse>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-
-  getMe: () => request<User>("/auth/me"),
 };
 
 // Portfolio endpoints

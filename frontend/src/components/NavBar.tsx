@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useAuth } from "@/components/AuthProvider";
+import { useSession, signOut } from "next-auth/react";
 
 export default function NavBar() {
-  const { user, loading, logout } = useAuth();
+  const { data: session, status } = useSession();
 
   return (
     <nav className="flex items-center gap-1">
-      {loading ? (
+      {status === "loading" ? (
         <div className="w-4 h-4 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
-      ) : user ? (
+      ) : session?.user ? (
         <>
           <Link
             href="/portfolios"
@@ -24,9 +24,9 @@ export default function NavBar() {
           >
             Risk Dashboard
           </Link>
-          <span className="px-3 py-2 text-sm text-slate-500">{user.email}</span>
+          <span className="px-3 py-2 text-sm text-slate-500">{session.user.email}</span>
           <button
-            onClick={logout}
+            onClick={() => signOut({ callbackUrl: "/login" })}
             className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
             Logout
