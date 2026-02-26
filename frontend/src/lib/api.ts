@@ -15,12 +15,24 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v
 
 // Module-level token set by SessionSync from NextAuth session
 let _backendToken: string | null = null;
+let _tokenResolve: (() => void) | null = null;
+const _tokenReady: Promise<void> = new Promise((resolve) => {
+  _tokenResolve = resolve;
+});
 
 export function setBackendToken(token: string | null): void {
   _backendToken = token;
+  if (token && _tokenResolve) {
+    _tokenResolve();
+    _tokenResolve = null;
+  }
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  // Wait for the backend token to be set by SessionSync (max 5s)
+  if (!_backendToken) {
+    await Promise.race([_tokenReady, new Promise((r) => setTimeout(r, 5000))]);
+  }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (_backendToken) {
     headers["Authorization"] = `Bearer ${_backendToken}`;
