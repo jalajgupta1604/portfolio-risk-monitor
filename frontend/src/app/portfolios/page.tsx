@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { PortfolioSummary, PortfolioResponse, HoldingResponse } from "@/lib/types";
+import { PortfolioSummary, PortfolioResponse, HoldingResponse, StockQuote } from "@/lib/types";
+import StockSearch from "@/components/StockSearch";
 
 export default function PortfoliosPage() {
   const [portfolios, setPortfolios] = useState<PortfolioSummary[]>([]);
@@ -23,6 +24,8 @@ export default function PortfoliosPage() {
   const [holdQty, setHoldQty] = useState("");
   const [holdPrice, setHoldPrice] = useState("");
   const [addingHolding, setAddingHolding] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<StockQuote | null>(null);
+  const [searchResetKey, setSearchResetKey] = useState(0);
 
   const loadPortfolios = useCallback(async () => {
     try {
@@ -87,6 +90,8 @@ export default function PortfoliosPage() {
       setHoldSymbol("");
       setHoldQty("");
       setHoldPrice("");
+      setSelectedQuote(null);
+      setSearchResetKey((k) => k + 1);
       setShowAddHolding(false);
       await selectPortfolio(selected.id);
       await loadPortfolios();
@@ -106,6 +111,11 @@ export default function PortfoliosPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to remove holding");
     }
+  };
+
+  const handleStockSelect = (symbol: string, quote: StockQuote) => {
+    setHoldSymbol(symbol);
+    setSelectedQuote(quote);
   };
 
   const formatCurrency = (v: number) =>
@@ -275,17 +285,28 @@ export default function PortfoliosPage() {
               {showAddHolding && (
                 <div className="p-6 border-b border-slate-100 bg-slate-50">
                   <h3 className="text-sm font-semibold text-slate-700 mb-3">Add New Holding</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Symbol *</label>
-                      <input
-                        type="text"
-                        value={holdSymbol}
-                        onChange={(e) => setHoldSymbol(e.target.value)}
-                        placeholder="e.g. RELIANCE.NS"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
+
+                  {/* Stock search */}
+                  <div className="mb-3">
+                    <StockSearch onSelect={handleStockSelect} reset={searchResetKey} />
+                  </div>
+
+                  {/* Selected stock info bar */}
+                  {selectedQuote && selectedQuote.last_price > 0 && (
+                    <div className="mb-3 p-3 bg-white border border-slate-200 rounded-lg flex items-center gap-4 text-sm">
+                      <span className="font-mono font-semibold text-slate-900">{selectedQuote.symbol}</span>
+                      <span className="font-semibold text-slate-900">{formatCurrency(selectedQuote.last_price)}</span>
+                      <span className={`font-medium ${selectedQuote.change >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {selectedQuote.change >= 0 ? "+" : ""}{selectedQuote.change.toFixed(2)} ({selectedQuote.change >= 0 ? "+" : ""}{selectedQuote.change_percent.toFixed(2)}%)
+                      </span>
+                      <span className="text-slate-400 text-xs">
+                        H: {formatCurrency(selectedQuote.day_high)} &middot; L: {formatCurrency(selectedQuote.day_low)}
+                      </span>
                     </div>
+                  )}
+
+                  {/* Quantity and avg buy price */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Quantity *</label>
                       <input
@@ -311,6 +332,44 @@ export default function PortfoliosPage() {
                       />
                     </div>
                   </div>
+
+                  {/* P&L preview panel */}
+                  {selectedQuote && selectedQuote.last_price > 0 && holdQty && holdPrice && parseFloat(holdQty) > 0 && parseFloat(holdPrice) > 0 && (() => {
+                    const qty = parseFloat(holdQty);
+                    const avgPrice = parseFloat(holdPrice);
+                    const investment = qty * avgPrice;
+                    const marketValue = qty * selectedQuote.last_price;
+                    const pnl = marketValue - investment;
+                    const pnlPct = (pnl / investment) * 100;
+                    return (
+                      <div className="mt-3 p-3 bg-white border border-slate-200 rounded-lg">
+                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">P&L Preview</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs text-slate-400">Investment</p>
+                            <p className="font-semibold text-slate-900">{formatCurrency(investment)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400">Market Value</p>
+                            <p className="font-semibold text-slate-900">{formatCurrency(marketValue)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400">P&L</p>
+                            <p className={`font-semibold ${pnl >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              {pnl >= 0 ? "+" : ""}{formatCurrency(pnl)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400">P&L %</p>
+                            <p className={`font-semibold ${pnlPct >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="flex gap-3 mt-3">
                     <button
                       onClick={addHolding}
@@ -320,7 +379,12 @@ export default function PortfoliosPage() {
                       {addingHolding ? "Adding..." : "Add Holding"}
                     </button>
                     <button
-                      onClick={() => setShowAddHolding(false)}
+                      onClick={() => {
+                        setShowAddHolding(false);
+                        setSelectedQuote(null);
+                        setHoldSymbol("");
+                        setSearchResetKey((k) => k + 1);
+                      }}
                       className="px-4 py-2 text-slate-600 text-sm font-medium rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors"
                     >
                       Cancel

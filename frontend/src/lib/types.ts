@@ -92,3 +92,30 @@ export interface RiskHistoryResponse {
   entries: RiskHistoryEntry[];
   count: number;
 }
+
+// Stock search types
+export interface StockSearchResult {
+  symbol: string;
+  short_name: string;
+  long_name: string;
+  exchange: string;
+  sector: string;
+  industry: string;
+}
+
+export interface StockSearchResponse {
+  query: string;
+  results: StockSearchResult[];
+  count: number;
+}
+
+export interface StockQuote {
+  symbol: string;
+  last_price: number;
+  previous_close: number;
+  open: number;
+  day_high: number;
+  day_low: number;
+  change: number;
+  change_percent: number;
+}

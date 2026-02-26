@@ -7,6 +7,8 @@ import {
   HoldingResponse,
   RiskReport,
   RiskHistoryResponse,
+  StockSearchResponse,
+  StockQuote,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -75,4 +77,11 @@ export const api = {
 
   getRiskHistory: (portfolioId: string, limit = 100) =>
     request<RiskHistoryResponse>(`/risk/${portfolioId}/history?limit=${limit}`),
+
+  // Stock search endpoints
+  searchStocks: (query: string, maxResults = 10) =>
+    request<StockSearchResponse>(`/stocks/search?q=${encodeURIComponent(query)}&max_results=${maxResults}`),
+
+  getStockQuote: (symbol: string) =>
+    request<StockQuote>(`/stocks/${encodeURIComponent(symbol)}/quote`),
 };
