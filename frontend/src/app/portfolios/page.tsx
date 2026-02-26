@@ -86,6 +86,7 @@ export default function PortfoliosPage() {
         symbol: holdSymbol.trim().toUpperCase(),
         quantity: parseFloat(holdQty),
         avg_buy_price: parseFloat(holdPrice),
+        ...(selectedQuote && selectedQuote.last_price > 0 ? { current_price: selectedQuote.last_price } : {}),
       });
       setHoldSymbol("");
       setHoldQty("");

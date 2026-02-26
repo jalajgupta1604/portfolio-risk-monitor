@@ -63,12 +63,14 @@ class PortfolioRepository:
         symbol: str,
         quantity: float,
         avg_buy_price: float,
+        current_price: float | None = None,
     ) -> Holding:
         holding = Holding(
             portfolio_id=portfolio_id,
             symbol=symbol.upper(),
             quantity=quantity,
             avg_buy_price=avg_buy_price,
+            current_price=current_price if current_price is not None else 0.0,
         )
         self.session.add(holding)
         await self.session.flush()

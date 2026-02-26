@@ -35,6 +35,7 @@ class PortfolioService:
                 symbol=h.symbol,
                 quantity=h.quantity,
                 avg_buy_price=h.avg_buy_price,
+                current_price=h.current_price,
             )
 
         portfolio = await self._get_or_404(portfolio.id, user_id)
@@ -74,6 +75,7 @@ class PortfolioService:
             symbol=data.symbol,
             quantity=data.quantity,
             avg_buy_price=data.avg_buy_price,
+            current_price=data.current_price,
         )
         return HoldingResponse(
             id=holding.id,

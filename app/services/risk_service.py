@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 import numpy as np
@@ -9,6 +10,9 @@ from app.models import RiskSnapshot
 from app.repositories import PortfolioRepository, PriceHistoryRepository, RiskSnapshotRepository
 from app.risk_engine import RiskComputationInput, RiskEngine
 from app.schemas.risk import RiskHistoryEntry, RiskHistoryResponse, RiskReportResponse
+from app.services.stock_service import StockService
+
+logger = logging.getLogger(__name__)
 
 
 class RiskService:
@@ -31,6 +35,16 @@ class RiskService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Portfolio has no holdings",
             )
+
+        # Auto-refresh current prices from yfinance for any holding at 0
+        for holding in portfolio.holdings:
+            if holding.current_price <= 0:
+                try:
+                    quote = await StockService.get_quote(holding.symbol)
+                    if quote.last_price > 0:
+                        holding.current_price = quote.last_price
+                except Exception:
+                    logger.warning("Failed to fetch quote for %s", holding.symbol)
 
         symbols = [h.symbol for h in portfolio.holdings]
         quantities = np.array([h.quantity for h in portfolio.holdings])

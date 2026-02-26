@@ -8,6 +8,7 @@ class HoldingCreate(BaseModel):
     symbol: str = Field(..., min_length=1, max_length=20, examples=["RELIANCE.NS"])
     quantity: float = Field(..., gt=0, examples=[100.0])
     avg_buy_price: float = Field(..., gt=0, examples=[2450.50])
+    current_price: float | None = Field(None, ge=0, examples=[2500.00])
 
 
 class HoldingUpdate(BaseModel):
