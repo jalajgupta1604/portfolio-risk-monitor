@@ -1,6 +1,7 @@
 import asyncio
 from functools import partial
 
+import pandas as pd
 import yfinance as yf
 
 from app.schemas.stock import StockQuote, StockSearchResult
@@ -8,6 +9,37 @@ from app.schemas.stock import StockQuote, StockSearchResult
 
 class StockService:
     """Stateless service for searching NSE stocks and fetching quotes via yfinance."""
+
+    @staticmethod
+    async def fetch_history(symbol: str, period: str = "1y") -> list[dict]:
+        """Fetch historical OHLCV data from yfinance. Returns list of dicts
+        with keys: symbol, date, open, high, low, close, volume."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, partial(StockService._fetch_history_sync, symbol, period)
+        )
+
+    @staticmethod
+    def _fetch_history_sync(symbol: str, period: str) -> list[dict]:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period, auto_adjust=True)
+        if df is None or df.empty:
+            return []
+        records: list[dict] = []
+        for idx, row in df.iterrows():
+            ts = idx
+            if isinstance(ts, pd.Timestamp):
+                ts = ts.to_pydatetime()
+            records.append({
+                "symbol": symbol.upper(),
+                "date": ts,
+                "open": float(row["Open"]),
+                "high": float(row["High"]),
+                "low": float(row["Low"]),
+                "close": float(row["Close"]),
+                "volume": float(row.get("Volume", 0)),
+            })
+        return records
 
     @staticmethod
     async def search(query: str, max_results: int = 10) -> list[StockSearchResult]:

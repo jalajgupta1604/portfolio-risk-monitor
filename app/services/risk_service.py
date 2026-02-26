@@ -61,6 +61,19 @@ class RiskService:
 
         weights = market_values / total_value
 
+        # Auto-fetch missing price history from yfinance
+        all_symbols = symbols + [settings.NIFTY_SYMBOL]
+        for sym in all_symbols:
+            prices = await self.price_repo.get_prices(sym)
+            if len(prices) < 2:
+                try:
+                    logger.info("Fetching price history for %s from yfinance", sym)
+                    records = await StockService.fetch_history(sym, period="1y")
+                    if records:
+                        await self.price_repo.bulk_upsert(records)
+                except Exception:
+                    logger.warning("Failed to fetch price history for %s", sym)
+
         price_series = {}
         for sym in symbols:
             prices = await self.price_repo.get_prices(sym)
