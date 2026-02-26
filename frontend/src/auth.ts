@@ -1,5 +1,4 @@
 import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
 // Server-side URL for NextAuth authorize (inside Docker: http://app:8000/api/v1)
@@ -9,46 +8,7 @@ const API_BASE =
 const OAUTH_BRIDGE_SECRET = process.env.OAUTH_BRIDGE_SECRET || "";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
-    Google,
-    Credentials({
-      credentials: {
-        email: {},
-        password: {},
-      },
-      async authorize(credentials) {
-        const { email, password } = credentials as {
-          email: string;
-          password: string;
-        };
-
-        // Call backend /auth/login
-        const loginRes = await fetch(`${API_BASE}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-        if (!loginRes.ok) return null;
-
-        const { access_token } = await loginRes.json();
-
-        // Fetch user profile
-        const meRes = await fetch(`${API_BASE}/auth/me`, {
-          headers: { Authorization: `Bearer ${access_token}` },
-        });
-        if (!meRes.ok) return null;
-
-        const user = await meRes.json();
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.full_name,
-          backendToken: access_token,
-        };
-      },
-    }),
-  ],
+  providers: [Google],
   session: { strategy: "jwt", maxAge: 23 * 60 * 60 },
   pages: { signIn: "/login" },
   callbacks: {
@@ -64,12 +24,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async jwt({ token, user, account }: any) {
-      // Credentials flow: user object already has backendToken
-      if (user?.backendToken) {
-        token.backendToken = user.backendToken;
-        token.userId = user.id;
-      }
-
       // Google OAuth flow: exchange Google identity for backend JWT
       if (account?.provider === "google" && user) {
         const res = await fetch(`${API_BASE}/auth/oauth-login`, {

@@ -7,8 +7,6 @@ import {
   HoldingResponse,
   RiskReport,
   RiskHistoryResponse,
-  UserCreate,
-  User,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -38,15 +36,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (res.status === 204) return undefined as T;
   return res.json();
 }
-
-// Auth endpoints (used for registration only — login goes through NextAuth)
-export const authApi = {
-  register: (data: UserCreate) =>
-    request<User>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-};
 
 // Portfolio endpoints
 export const api = {

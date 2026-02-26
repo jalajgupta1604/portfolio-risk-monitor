@@ -3,49 +3,16 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.user import User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 class AuthService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
-
-    async def register(
-        self, email: str, password: str, full_name: str | None = None
-    ) -> User:
-        existing = await self.session.execute(
-            select(User).where(User.email == email)
-        )
-        if existing.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered",
-            )
-
-        user = User(
-            email=email,
-            hashed_password=pwd_context.hash(password),
-            full_name=full_name,
-        )
-        self.session.add(user)
-        await self.session.flush()
-        return user
-
-    async def login(self, email: str, password: str) -> str:
-        user = await self._get_by_email(email)
-        if not user or not user.hashed_password or not pwd_context.verify(password, user.hashed_password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
-            )
-        return self._create_token(str(user.id))
 
     async def oauth_login(
         self, email: str, full_name: str | None, oauth_provider: str

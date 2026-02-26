@@ -1,10 +1,4 @@
 // Auth types
-export interface UserCreate {
-  email: string;
-  password: string;
-  full_name?: string;
-}
-
 export interface User {
   id: string;
   email: string;
