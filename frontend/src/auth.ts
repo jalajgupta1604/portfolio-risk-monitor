@@ -1,12 +1,19 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 
 // Server-side URL for NextAuth authorize (inside Docker: http://app:8000/api/v1)
 const API_BASE =
   process.env.API_URL_INTERNAL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
+const OAUTH_BRIDGE_SECRET = process.env.OAUTH_BRIDGE_SECRET || "";
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
     Credentials({
       credentials: {
         email: {},
@@ -59,11 +66,43 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true;
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    jwt({ token, user }: any) {
-      if (user) {
+    async jwt({ token, user, account }: any) {
+      // Credentials flow: user object already has backendToken
+      if (user?.backendToken) {
         token.backendToken = user.backendToken;
         token.userId = user.id;
       }
+
+      // Google OAuth flow: exchange Google identity for backend JWT
+      if (account?.provider === "google" && user) {
+        const res = await fetch(`${API_BASE}/auth/oauth-login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-OAuth-Bridge-Secret": OAUTH_BRIDGE_SECRET,
+          },
+          body: JSON.stringify({
+            email: user.email,
+            full_name: user.name,
+            oauth_provider: "google",
+          }),
+        });
+
+        if (res.ok) {
+          const { access_token } = await res.json();
+          token.backendToken = access_token;
+
+          // Fetch backend user ID
+          const meRes = await fetch(`${API_BASE}/auth/me`, {
+            headers: { Authorization: `Bearer ${access_token}` },
+          });
+          if (meRes.ok) {
+            const me = await meRes.json();
+            token.userId = me.id;
+          }
+        }
+      }
+
       return token;
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

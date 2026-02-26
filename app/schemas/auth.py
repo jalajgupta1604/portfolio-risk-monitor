@@ -20,6 +20,12 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class OAuthLogin(BaseModel):
+    email: EmailStr
+    full_name: str | None = None
+    oauth_provider: str = Field(..., min_length=1, max_length=50)
+
+
 class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 

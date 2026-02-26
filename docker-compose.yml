@@ -23,6 +23,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://riskadmin:riskpass123@db:5432/portfolio_risk
       DATABASE_URL_SYNC: postgresql+psycopg2://riskadmin:riskpass123@db:5432/portfolio_risk
       JWT_SECRET: change-me-in-production
+      OAUTH_BRIDGE_SECRET: ${OAUTH_BRIDGE_SECRET:-change-me-bridge-secret}
       API_BASE_URL: http://app:8000
     depends_on:
       db:
@@ -40,6 +41,10 @@ services:
       NEXT_PUBLIC_WS_URL: ws://localhost:8000
       AUTH_SECRET: changeme-generate-a-real-secret-for-production
       AUTH_TRUST_HOST: "true"
+      AUTH_URL: http://localhost:3000
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      OAUTH_BRIDGE_SECRET: ${OAUTH_BRIDGE_SECRET:-change-me-bridge-secret}
     depends_on:
       - app
 

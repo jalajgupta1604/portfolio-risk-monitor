@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     WEBHOOK_SECRET: str = ""
     ALERT_ON_RISK_LEVELS: str = "HIGH,CRITICAL"
 
+    # OAuth bridge (shared secret between NextAuth and backend)
+    OAUTH_BRIDGE_SECRET: str = ""
+
     # JWT Authentication
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"

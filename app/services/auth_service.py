@@ -40,11 +40,30 @@ class AuthService:
 
     async def login(self, email: str, password: str) -> str:
         user = await self._get_by_email(email)
-        if not user or not pwd_context.verify(password, user.hashed_password):
+        if not user or not user.hashed_password or not pwd_context.verify(password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
+        return self._create_token(str(user.id))
+
+    async def oauth_login(
+        self, email: str, full_name: str | None, oauth_provider: str
+    ) -> str:
+        user = await self._get_by_email(email)
+        if user:
+            # Link OAuth provider if not already set
+            if not user.oauth_provider:
+                user.oauth_provider = oauth_provider
+                await self.session.flush()
+        else:
+            user = User(
+                email=email,
+                full_name=full_name,
+                oauth_provider=oauth_provider,
+            )
+            self.session.add(user)
+            await self.session.flush()
         return self._create_token(str(user.id))
 
     async def get_user_by_id(self, user_id: uuid.UUID) -> User | None:
