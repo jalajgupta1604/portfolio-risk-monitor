@@ -10,6 +10,7 @@ import CorrelationHeatmap from "@/components/CorrelationHeatmap";
 import StressTestChart from "@/components/StressTestChart";
 import RiskTrendChart from "@/components/RiskTrendChart";
 import MetricCard from "@/components/MetricCard";
+import SectorAllocationChart from "@/components/SectorAllocationChart";
 
 function DashboardContent() {
   const searchParams = useSearchParams();
@@ -209,7 +210,7 @@ function DashboardContent() {
         <>
           {/* Key Metrics Row */}
           {report && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
               <MetricCard
                 label="Volatility"
                 value={formatPct(report.rolling_volatility)}
@@ -243,13 +244,30 @@ function DashboardContent() {
                 subtitle="Score momentum"
                 color={report.risk_acceleration > 3 ? "#ef4444" : undefined}
               />
+              <MetricCard
+                label="Sector Conc."
+                value={report.sector_concentration.toFixed(1)}
+                subtitle="HHI score 0-100"
+                color={report.sector_concentration > 50 ? "#ef4444" : undefined}
+              />
+              <MetricCard
+                label="India VIX"
+                value={report.india_vix != null ? report.india_vix.toFixed(1) : "N/A"}
+                subtitle="Fear gauge"
+                color={report.india_vix != null && report.india_vix > 20 ? "#ef4444" : "#22c55e"}
+              />
             </div>
           )}
 
-          {/* Gauge + Early Warnings */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Gauge + Sector + Allocation + Early Warnings */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
             {report && (
               <RiskGauge score={report.composite_score} level={report.risk_level} />
+            )}
+
+            {/* Sector Allocation Donut */}
+            {report && (
+              <SectorAllocationChart sectorAllocation={report.sector_allocation} />
             )}
 
             {/* Allocation Weights */}

@@ -56,7 +56,8 @@ async def fetch_and_store_prices(session: AsyncSession) -> dict[str, float]:
     symbols = list(result.scalars().all())
 
     benchmark = settings.NIFTY_SYMBOL
-    all_symbols = list(set(symbols + [benchmark]))
+    vix = settings.INDIA_VIX_SYMBOL
+    all_symbols = list(set(symbols + [benchmark, vix]))
 
     if not all_symbols:
         logger.warning("No symbols found in holdings.")
@@ -203,6 +204,11 @@ async def compute_risk_all_portfolios(session: AsyncSession) -> int:
 
 async def run_once():
     """Single execution: fetch prices → update holdings → compute risk."""
+    # Skip weekends (Saturday=5, Sunday=6)
+    if datetime.now(timezone.utc).weekday() >= 5:
+        logger.info("Weekend — skipping market data fetch.")
+        return
+
     start = time.time()
     logger.info("=" * 60)
     logger.info("Market Worker started at %s", datetime.now(timezone.utc).isoformat())

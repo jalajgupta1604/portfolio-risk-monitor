@@ -12,9 +12,31 @@ logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 
+def _register_brokers() -> None:
+    """Register available broker integrations at startup."""
+    from app.brokers import BrokerRegistry, CasPdfParser, GrowwCsvParser, ZerodhaCsvParser
+
+    registry = BrokerRegistry()
+
+    # CSV / PDF parsers are always available
+    registry.register(ZerodhaCsvParser())
+    registry.register(GrowwCsvParser())
+    registry.register(CasPdfParser())
+
+    # Zerodha API only if credentials are configured
+    if settings.KITE_API_KEY:
+        from app.brokers import ZerodhaApiBroker
+
+        registry.register(ZerodhaApiBroker())
+        logger.info("Zerodha Kite Connect API broker registered")
+    else:
+        logger.info("Zerodha API not configured (KITE_API_KEY not set)")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting %s", settings.APP_NAME)
+    _register_brokers()
     yield
     logger.info("Shutting down %s", settings.APP_NAME)
 

@@ -20,6 +20,7 @@ export interface HoldingResponse {
   quantity: number;
   avg_buy_price: number;
   current_price: number;
+  sector: string | null;
   market_value: number;
 }
 
@@ -75,6 +76,9 @@ export interface RiskReport {
   weights: Record<string, number>;
   total_portfolio_value: number;
   early_warning_signals: string[];
+  sector_allocation: Record<string, number>;
+  sector_concentration: number;
+  india_vix: number | null;
 }
 
 export interface RiskHistoryEntry {
@@ -119,4 +123,48 @@ export interface StockQuote {
   day_low: number;
   change: number;
   change_percent: number;
+}
+
+// Broker types
+export interface BrokerInfo {
+  name: string;
+  display_name: string;
+  broker_type: string;
+  supports_api: boolean;
+  supports_csv: boolean;
+}
+
+export interface BrokerConnection {
+  id: string;
+  broker_name: string;
+  is_active: boolean;
+  last_synced_at: string | null;
+  created_at: string;
+}
+
+export interface CsvImportResponse {
+  portfolio_id: string;
+  portfolio_name: string;
+  total_imported: number;
+  created: number;
+  updated: number;
+  holdings: {
+    symbol: string;
+    quantity: number;
+    avg_buy_price: number;
+    action: string;
+  }[];
+}
+
+export interface SyncResponse {
+  broker_name: string;
+  holdings_synced: number;
+  portfolio_id: string;
+  created: number;
+  updated: number;
+}
+
+export interface AutoSyncResponse {
+  synced: SyncResponse[];
+  errors: string[];
 }

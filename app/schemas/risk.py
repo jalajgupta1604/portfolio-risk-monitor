@@ -41,6 +41,9 @@ class RiskReportResponse(BaseModel):
     weights: dict[str, float]
     total_portfolio_value: float
     early_warning_signals: list[str]
+    sector_allocation: dict[str, float] = Field(default_factory=dict, description="Sector-wise allocation weights")
+    sector_concentration: float = Field(default=0.0, description="Sector concentration score 0-100")
+    india_vix: float | None = Field(default=None, description="India VIX level")
 
 
 class RiskHistoryEntry(BaseModel):

@@ -11,6 +11,7 @@ def compute_composite_score(
     downside_beta: float,
     avg_correlation: float,
     worst_stress_impact: float,
+    sector_concentration: float = 0.0,
 ) -> float:
     vol_score = _normalize_volatility(volatility)
     var_score = _normalize_var(var_95)
@@ -26,6 +27,7 @@ def compute_composite_score(
         + settings.RISK_WEIGHT_DOWNSIDE_BETA * downside_score
         + settings.RISK_WEIGHT_CORRELATION * corr_score
         + settings.RISK_WEIGHT_STRESS * stress_score
+        + settings.RISK_WEIGHT_SECTOR * sector_concentration
     )
 
     return float(np.clip(composite, 0, 100))

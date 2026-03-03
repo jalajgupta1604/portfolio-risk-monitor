@@ -25,6 +25,7 @@ class HoldingResponse(BaseModel):
     quantity: float
     avg_buy_price: float
     current_price: float
+    sector: str | None = None
     market_value: float = 0.0
 
 

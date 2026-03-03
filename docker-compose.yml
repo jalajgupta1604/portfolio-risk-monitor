@@ -25,11 +25,29 @@ services:
       JWT_SECRET: change-me-in-production
       OAUTH_BRIDGE_SECRET: ${OAUTH_BRIDGE_SECRET:-change-me-bridge-secret}
       API_BASE_URL: http://app:8000
+      KITE_API_KEY: ${KITE_API_KEY:-}
+      KITE_API_SECRET: ${KITE_API_SECRET:-}
+      KITE_REDIRECT_URL: ${KITE_REDIRECT_URL:-http://localhost:3000/brokers/zerodha/callback}
+      BROKER_TOKEN_ENCRYPTION_KEY: ${BROKER_TOKEN_ENCRYPTION_KEY:-}
     depends_on:
       db:
         condition: service_healthy
     command: >
       sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://riskadmin:riskpass123@db:5432/portfolio_risk
+      DATABASE_URL_SYNC: postgresql+psycopg2://riskadmin:riskpass123@db:5432/portfolio_risk
+      API_BASE_URL: http://app:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+    command: python -m scripts.market_worker --loop --interval 3600
+    restart: unless-stopped
 
   frontend:
     build: ./frontend

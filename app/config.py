@@ -17,12 +17,16 @@ class Settings(BaseSettings):
     VAR_CONFIDENCE: float = 0.95
     TRADING_DAYS_PER_YEAR: int = 252
 
-    RISK_WEIGHT_VOLATILITY: float = 0.20
-    RISK_WEIGHT_VAR: float = 0.25
-    RISK_WEIGHT_BETA: float = 0.15
-    RISK_WEIGHT_DOWNSIDE_BETA: float = 0.15
-    RISK_WEIGHT_CORRELATION: float = 0.10
-    RISK_WEIGHT_STRESS: float = 0.15
+    RISK_WEIGHT_VOLATILITY: float = 0.18
+    RISK_WEIGHT_VAR: float = 0.22
+    RISK_WEIGHT_BETA: float = 0.13
+    RISK_WEIGHT_DOWNSIDE_BETA: float = 0.13
+    RISK_WEIGHT_CORRELATION: float = 0.09
+    RISK_WEIGHT_STRESS: float = 0.13
+    RISK_WEIGHT_SECTOR: float = 0.12
+
+    INDIA_VIX_SYMBOL: str = "^INDIAVIX"
+    VIX_SPIKE_THRESHOLD: float = 20.0
 
     # Alerts (opt-in: leave empty to disable)
     SMTP_HOST: str = ""
@@ -35,6 +39,12 @@ class Settings(BaseSettings):
     WEBHOOK_URL: str = ""
     WEBHOOK_SECRET: str = ""
     ALERT_ON_RISK_LEVELS: str = "HIGH,CRITICAL"
+
+    # Broker integrations
+    KITE_API_KEY: str = ""
+    KITE_API_SECRET: str = ""
+    KITE_REDIRECT_URL: str = "http://localhost:3000/brokers/zerodha/callback"
+    BROKER_TOKEN_ENCRYPTION_KEY: str = ""  # Fernet key for encrypting stored tokens
 
     # OAuth bridge (shared secret between NextAuth and backend)
     OAUTH_BRIDGE_SECRET: str = ""

@@ -44,6 +44,12 @@ export default function LoginPage() {
             Sign in with Google
           </button>
         </div>
+        <p className="mt-4 text-xs text-slate-400 text-center leading-relaxed">
+          This tool is for informational and educational purposes only. It does not constitute
+          financial, investment, or trading advice. Past performance and risk metrics do not
+          guarantee future results. Always consult a qualified financial advisor before making
+          investment decisions.
+        </p>
       </div>
     </div>
   );

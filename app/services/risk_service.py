@@ -61,6 +61,13 @@ class RiskService:
 
         weights = market_values / total_value
 
+        # Compute sector allocation from holdings
+        sector_totals: dict[str, float] = {}
+        for h, mv in zip(portfolio.holdings, market_values):
+            sector = h.sector or "Unknown"
+            sector_totals[sector] = sector_totals.get(sector, 0.0) + float(mv)
+        sector_allocation = {s: v / total_value for s, v in sector_totals.items()} if total_value > 0 else {}
+
         # Auto-fetch missing price history from yfinance
         all_symbols = symbols + [settings.NIFTY_SYMBOL]
         for sym in all_symbols:
@@ -109,6 +116,7 @@ class RiskService:
             symbols=symbols,
             portfolio_value=total_value,
             historical_composite_scores=hist_scores,
+            sector_weights=sector_allocation if sector_allocation else None,
         )
 
         result = self.engine.compute(inp)
@@ -122,11 +130,32 @@ class RiskService:
             composite_score=result.composite_score,
             risk_acceleration=result.risk_acceleration_val,
             risk_level=result.risk_level.value,
+            sector_concentration=result.sector_concentration,
             correlation_matrix=result.correlation_map,
             stress_results=[s.model_dump() for s in result.stress_scenarios],
             weights=result.weights_map,
         )
         await self.risk_repo.create(snapshot)
+
+        # Fetch India VIX (best-effort)
+        india_vix: float | None = None
+        try:
+            vix_prices = await self.price_repo.get_prices(settings.INDIA_VIX_SYMBOL)
+            if vix_prices:
+                india_vix = vix_prices[-1].close
+            else:
+                vix_records = await StockService.fetch_history(settings.INDIA_VIX_SYMBOL, period="5d")
+                if vix_records:
+                    india_vix = vix_records[-1]["close"]
+        except Exception:
+            logger.warning("Failed to fetch India VIX")
+
+        # VIX spike warning
+        early_warnings = list(result.early_warnings)
+        if india_vix is not None and india_vix > settings.VIX_SPIKE_THRESHOLD:
+            early_warnings.append(
+                f"VIX SPIKE: India VIX at {india_vix:.1f} — exceeds {settings.VIX_SPIKE_THRESHOLD:.0f} threshold"
+            )
 
         return RiskReportResponse(
             portfolio_id=portfolio_id,
@@ -143,7 +172,10 @@ class RiskService:
             stress_results=result.stress_scenarios,
             weights=result.weights_map,
             total_portfolio_value=total_value,
-            early_warning_signals=result.early_warnings,
+            early_warning_signals=early_warnings,
+            sector_allocation=sector_allocation,
+            sector_concentration=result.sector_concentration,
+            india_vix=india_vix,
         )
 
     async def get_risk_history(

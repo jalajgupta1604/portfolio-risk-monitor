@@ -8,6 +8,7 @@ from app.risk_engine.acceleration import generate_early_warnings, risk_accelerat
 from app.risk_engine.beta import downside_beta, portfolio_beta
 from app.risk_engine.composite import classify_risk_level, compute_composite_score
 from app.risk_engine.correlation import avg_pairwise_correlation, correlation_matrix
+from app.risk_engine.sector import sector_concentration_score
 from app.risk_engine.stress import run_stress_tests
 from app.risk_engine.var import var_95
 from app.risk_engine.volatility import compute_log_returns, portfolio_rolling_volatility
@@ -22,6 +23,7 @@ class RiskComputationInput:
     symbols: list[str]
     portfolio_value: float
     historical_composite_scores: NDArray[np.float64] | None = None
+    sector_weights: dict[str, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,7 @@ class RiskComputationResult:
     risk_acceleration_val: float
     early_warnings: list[str]
     weights_map: dict[str, float]
+    sector_concentration: float = 0.0
 
 
 class RiskEngine:
@@ -68,6 +71,10 @@ class RiskEngine:
 
         worst_stress = min(s.portfolio_impact_pct for s in stress) / 100.0 if stress else 0.0
 
+        sec_conc = 0.0
+        if inp.sector_weights:
+            sec_conc = sector_concentration_score(inp.sector_weights)
+
         composite = compute_composite_score(
             volatility=vol,
             var_95=v95,
@@ -75,6 +82,7 @@ class RiskEngine:
             downside_beta=db,
             avg_correlation=avg_corr,
             worst_stress_impact=worst_stress,
+            sector_concentration=sec_conc,
         )
 
         level = classify_risk_level(composite)
@@ -92,6 +100,7 @@ class RiskEngine:
             downside_beta=db,
             var_95=v95,
             avg_correlation=avg_corr,
+            sector_weights=inp.sector_weights,
         )
 
         weights_map = {sym: float(w) for sym, w in zip(inp.symbols, inp.weights)}
@@ -110,4 +119,5 @@ class RiskEngine:
             risk_acceleration_val=accel,
             early_warnings=warnings,
             weights_map=weights_map,
+            sector_concentration=round(sec_conc, 2),
         )

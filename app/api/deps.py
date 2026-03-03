@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models.user import User
-from app.services import AuthService, PortfolioService, RiskService
+from app.services import AuthService, BrokerService, PortfolioService, RiskService
 
 DBSession = Annotated[AsyncSession, Depends(get_session)]
 
@@ -50,5 +50,12 @@ async def get_risk_service(
     yield RiskService(session)
 
 
+async def get_broker_service(
+    session: DBSession,
+) -> AsyncGenerator[BrokerService, None]:
+    yield BrokerService(session)
+
+
 PortfolioServiceDep = Annotated[PortfolioService, Depends(get_portfolio_service)]
 RiskServiceDep = Annotated[RiskService, Depends(get_risk_service)]
+BrokerServiceDep = Annotated[BrokerService, Depends(get_broker_service)]

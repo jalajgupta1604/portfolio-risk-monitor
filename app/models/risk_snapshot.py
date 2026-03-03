@@ -32,6 +32,8 @@ class RiskSnapshot(Base):
     risk_acceleration: Mapped[float] = mapped_column(Float, default=0.0)
     risk_level: Mapped[str] = mapped_column(String(20), nullable=False)
 
+    sector_concentration: Mapped[float] = mapped_column(Float, default=0.0)
+
     correlation_matrix: Mapped[dict] = mapped_column(JSON, default=dict)
     stress_results: Mapped[dict] = mapped_column(JSON, default=dict)
     weights: Mapped[dict] = mapped_column(JSON, default=dict)

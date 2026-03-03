@@ -25,3 +25,6 @@ class User(Base):
     portfolios: Mapped[list["Portfolio"]] = relationship(  # noqa: F821
         back_populates="owner", lazy="selectin"
     )
+    broker_connections: Mapped[list["BrokerConnection"]] = relationship(  # noqa: F821
+        back_populates="owner", lazy="selectin"
+    )

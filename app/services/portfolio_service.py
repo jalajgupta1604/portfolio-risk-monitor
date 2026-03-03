@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime
 
@@ -15,6 +16,9 @@ from app.schemas.portfolio import (
     PortfolioSummary,
     PortfolioUpdate,
 )
+from app.services.stock_service import StockService
+
+logger = logging.getLogger(__name__)
 
 
 class PortfolioService:
@@ -30,12 +34,14 @@ class PortfolioService:
         )
 
         for h in data.holdings:
+            sector = await self._resolve_sector(h.symbol)
             await self.repo.add_holding(
                 portfolio_id=portfolio.id,
                 symbol=h.symbol,
                 quantity=h.quantity,
                 avg_buy_price=h.avg_buy_price,
                 current_price=h.current_price,
+                sector=sector,
             )
 
         portfolio = await self._get_or_404(portfolio.id, user_id)
@@ -70,12 +76,14 @@ class PortfolioService:
         self, portfolio_id: uuid.UUID, data: HoldingCreate, user_id: uuid.UUID | None = None
     ) -> HoldingResponse:
         await self._get_or_404(portfolio_id, user_id)
+        sector = await self._resolve_sector(data.symbol)
         holding = await self.repo.add_holding(
             portfolio_id=portfolio_id,
             symbol=data.symbol,
             quantity=data.quantity,
             avg_buy_price=data.avg_buy_price,
             current_price=data.current_price,
+            sector=sector,
         )
         return HoldingResponse(
             id=holding.id,
@@ -83,6 +91,7 @@ class PortfolioService:
             quantity=holding.quantity,
             avg_buy_price=holding.avg_buy_price,
             current_price=holding.current_price,
+            sector=holding.sector,
             market_value=holding.quantity * holding.current_price,
         )
 
@@ -135,6 +144,14 @@ class PortfolioService:
             )
         return portfolio
 
+    async def _resolve_sector(self, symbol: str) -> str | None:
+        """Best-effort sector resolution via yfinance."""
+        try:
+            return await StockService.get_sector(symbol)
+        except Exception:
+            logger.warning("Failed to resolve sector for %s", symbol)
+            return None
+
     def _to_response(self, portfolio: Portfolio) -> PortfolioResponse:
         holdings = [
             HoldingResponse(
@@ -143,6 +160,7 @@ class PortfolioService:
                 quantity=h.quantity,
                 avg_buy_price=h.avg_buy_price,
                 current_price=h.current_price,
+                sector=h.sector,
                 market_value=h.quantity * h.current_price,
             )
             for h in portfolio.holdings

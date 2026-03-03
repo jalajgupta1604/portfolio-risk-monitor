@@ -51,6 +51,8 @@ class Holding(Base):
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
     avg_buy_price: Mapped[float] = mapped_column(Float, nullable=False)
     current_price: Mapped[float] = mapped_column(Float, default=0.0)
+    sector: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     portfolio: Mapped["Portfolio"] = relationship(back_populates="holdings")
 

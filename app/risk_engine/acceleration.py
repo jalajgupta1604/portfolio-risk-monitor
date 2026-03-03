@@ -27,6 +27,7 @@ def generate_early_warnings(
     downside_beta: float,
     var_95: float,
     avg_correlation: float,
+    sector_weights: dict[str, float] | None = None,
 ) -> list[str]:
     warnings: list[str] = []
 
@@ -60,5 +61,13 @@ def generate_early_warnings(
             f"CONCENTRATION: High avg correlation ({avg_correlation:.2f}) — "
             "diversification ineffective"
         )
+
+    if sector_weights:
+        for sector, weight in sector_weights.items():
+            if weight > 0.40:
+                pct = weight * 100
+                warnings.append(
+                    f"SECTOR CONCENTRATION: {sector} at {pct:.0f}% — exceeds 40% threshold"
+                )
 
     return warnings

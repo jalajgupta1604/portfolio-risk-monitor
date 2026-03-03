@@ -42,6 +42,23 @@ class StockService:
         return records
 
     @staticmethod
+    async def get_sector(symbol: str) -> str | None:
+        """Fetch sector classification for a symbol from yfinance."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, partial(StockService._get_sector_sync, symbol)
+        )
+
+    @staticmethod
+    def _get_sector_sync(symbol: str) -> str | None:
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+            return info.get("sector") if isinstance(info, dict) else None
+        except Exception:
+            return None
+
+    @staticmethod
     async def search(query: str, max_results: int = 10) -> list[StockSearchResult]:
         loop = asyncio.get_event_loop()
         results = await loop.run_in_executor(

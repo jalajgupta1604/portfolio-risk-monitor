@@ -3,8 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { PortfolioSummary, PortfolioResponse, HoldingResponse, StockQuote } from "@/lib/types";
+import { PortfolioSummary, PortfolioResponse, HoldingResponse, StockQuote, BrokerInfo } from "@/lib/types";
 import StockSearch from "@/components/StockSearch";
+import CsvImportModal from "@/components/CsvImportModal";
+import BrokerConnections from "@/components/BrokerConnections";
 
 export default function PortfoliosPage() {
   const [portfolios, setPortfolios] = useState<PortfolioSummary[]>([]);
@@ -27,6 +29,10 @@ export default function PortfoliosPage() {
   const [selectedQuote, setSelectedQuote] = useState<StockQuote | null>(null);
   const [searchResetKey, setSearchResetKey] = useState(0);
 
+  // Broker import
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [brokers, setBrokers] = useState<BrokerInfo[]>([]);
+
   const loadPortfolios = useCallback(async () => {
     try {
       setLoading(true);
@@ -39,9 +45,19 @@ export default function PortfoliosPage() {
     }
   }, []);
 
+  const loadBrokers = useCallback(async () => {
+    try {
+      const res = await api.listBrokers();
+      setBrokers(res.brokers);
+    } catch {
+      // Non-critical, ignore
+    }
+  }, []);
+
   useEffect(() => {
     loadPortfolios();
-  }, [loadPortfolios]);
+    loadBrokers();
+  }, [loadPortfolios, loadBrokers]);
 
   const selectPortfolio = async (id: string) => {
     try {
@@ -129,12 +145,22 @@ export default function PortfoliosPage() {
           <h1 className="text-2xl font-bold text-slate-900">Portfolios</h1>
           <p className="text-sm text-slate-500 mt-1">Create and manage your investment portfolios</p>
         </div>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          + New Portfolio
-        </button>
+        <div className="flex items-center gap-3">
+          {brokers.some((b) => b.supports_csv) && (
+            <button
+              onClick={() => setShowCsvImport(true)}
+              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Import from Broker
+            </button>
+          )}
+          <button
+            onClick={() => setShowCreate(!showCreate)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + New Portfolio
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -144,6 +170,21 @@ export default function PortfoliosPage() {
             &times;
           </button>
         </div>
+      )}
+
+      {/* Broker Connections panel */}
+      <div className="mb-6">
+        <BrokerConnections onSynced={() => { loadPortfolios(); if (selected) selectPortfolio(selected.id); }} />
+      </div>
+
+      {/* CSV Import Modal */}
+      {showCsvImport && (
+        <CsvImportModal
+          brokers={brokers}
+          portfolios={portfolios}
+          onClose={() => setShowCsvImport(false)}
+          onImported={loadPortfolios}
+        />
       )}
 
       {/* Create portfolio form */}
@@ -201,7 +242,7 @@ export default function PortfoliosPage() {
           ) : portfolios.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
               <p className="text-slate-500">No portfolios yet.</p>
-              <p className="text-sm text-slate-400 mt-1">Click &quot;New Portfolio&quot; to get started.</p>
+              <p className="text-sm text-slate-400 mt-1">Click &quot;New Portfolio&quot; or &quot;Import from Broker&quot; to get started.</p>
             </div>
           ) : (
             <div className="space-y-3">

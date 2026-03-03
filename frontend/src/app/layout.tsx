@@ -48,6 +48,13 @@ export default function RootLayout({
                 {children}
               </div>
             </main>
+            <footer className="border-t border-slate-200 bg-white py-4">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <p className="text-xs text-slate-400 text-center">
+                  For informational and educational purposes only. Not financial advice. Consult a qualified advisor before investing.
+                </p>
+              </div>
+            </footer>
           </div>
         </SessionProvider>
       </body>
