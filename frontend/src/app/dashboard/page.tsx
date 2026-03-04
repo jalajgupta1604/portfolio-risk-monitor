@@ -11,6 +11,10 @@ import StressTestChart from "@/components/StressTestChart";
 import RiskTrendChart from "@/components/RiskTrendChart";
 import MetricCard from "@/components/MetricCard";
 import SectorAllocationChart from "@/components/SectorAllocationChart";
+import RiskExplanation from "@/components/RiskExplanation";
+import MacroSensitivityChart from "@/components/MacroSensitivityChart";
+import HedgeSuggestions from "@/components/HedgeSuggestions";
+import TierGate from "@/components/TierGate";
 
 function DashboardContent() {
   const searchParams = useSearchParams();
@@ -148,6 +152,11 @@ function DashboardContent() {
                 Live
               </span>
             )}
+            {report && (
+              <span className="ml-2 text-slate-400">
+                Last updated: {new Date(report.computed_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -176,6 +185,17 @@ function DashboardContent() {
             )}
             {computing ? "Computing..." : "Compute Risk"}
           </button>
+          {report && (
+            <button
+              onClick={() => api.downloadWeeklyReport(selectedId)}
+              className="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Report
+            </button>
+          )}
         </div>
       </div>
 
@@ -337,6 +357,31 @@ function DashboardContent() {
               <CorrelationHeatmap matrix={report.correlation_matrix} />
             )}
           </div>
+
+          {/* AI Risk Explanation (paid+) */}
+          {report && (
+            <div className="mb-6">
+              <TierGate minTier="paid">
+                <RiskExplanation explanation={report.risk_explanation} />
+              </TierGate>
+            </div>
+          )}
+
+          {/* Hedge Suggestions */}
+          {report && report.hedge_suggestions && (
+            <div className="mb-6">
+              <HedgeSuggestions suggestions={report.hedge_suggestions} />
+            </div>
+          )}
+
+          {/* Macro Sensitivity (premium) */}
+          {report && (
+            <div className="mb-6">
+              <TierGate minTier="premium">
+                <MacroSensitivityChart sensitivities={report.macro_sensitivities} />
+              </TierGate>
+            </div>
+          )}
 
           {/* Risk Trend (full width) */}
           <RiskTrendChart entries={history} />

@@ -4,7 +4,9 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import CurrentUser, DBSession, RiskServiceDep
 from app.repositories.portfolio_repo import PortfolioRepository
+from app.schemas.payment import TIER_ORDER
 from app.schemas.risk import RiskHistoryResponse, RiskReportResponse
+from app.services.explanation_service import ExplanationService
 from app.websocket import manager
 
 router = APIRouter(prefix="/risk", tags=["risk"])
@@ -31,6 +33,19 @@ async def compute_risk(
 ) -> RiskReportResponse:
     await _verify_ownership(portfolio_id, current_user.id, session)
     report = await service.compute_risk(portfolio_id)
+
+    user_tier = getattr(current_user, "subscription_tier", "free") or "free"
+    user_order = TIER_ORDER.get(user_tier, 0)
+
+    # AI explanation for paid+ users
+    if user_order >= TIER_ORDER["paid"]:
+        explanation = await ExplanationService.explain(report)
+        report.risk_explanation = explanation
+
+    # Strip premium-only fields for non-premium users
+    if user_order < TIER_ORDER["premium"]:
+        report.macro_sensitivities = None
+
     # Broadcast to WebSocket clients
     await manager.broadcast(str(portfolio_id), report.model_dump(mode="json"))
     return report

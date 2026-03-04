@@ -40,6 +40,23 @@ class Settings(BaseSettings):
     WEBHOOK_SECRET: str = ""
     ALERT_ON_RISK_LEVELS: str = "HIGH,CRITICAL"
 
+    # Twilio WhatsApp (opt-in: leave empty to disable)
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_WHATSAPP_FROM: str = ""
+
+    # Razorpay
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_PLAN_ID_PAID: str = ""
+    RAZORPAY_PLAN_ID_PREMIUM: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+
+    # AI Explanations
+    ANTHROPIC_API_KEY: str = ""
+    AI_EXPLANATION_MODEL: str = "claude-sonnet-4-20250514"
+    AI_EXPLANATION_MAX_TOKENS: int = 1024
+
     # Broker integrations
     KITE_API_KEY: str = ""
     KITE_API_SECRET: str = ""
@@ -53,6 +70,10 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_MINUTES: int = 1440  # 24 hours
+
+    # Intraday refresh intervals (seconds)
+    INTRADAY_INTERVAL: int = 900   # 15 min during market hours
+    EOD_INTERVAL: int = 3600       # 1 hour outside market hours
 
     # WebSocket / API
     API_BASE_URL: str = "http://localhost:8000"

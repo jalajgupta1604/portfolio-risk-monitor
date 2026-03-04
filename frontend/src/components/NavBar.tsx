@@ -24,6 +24,18 @@ export default function NavBar() {
           >
             Risk Dashboard
           </Link>
+          <Link
+            href="/pricing"
+            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            Pricing
+          </Link>
+          <Link
+            href="/settings"
+            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            Settings
+          </Link>
           <span className="px-3 py-2 text-sm text-slate-500">{session.user.email}</span>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}

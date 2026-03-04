@@ -22,6 +22,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import httpx
 import yfinance as yf
@@ -41,6 +42,16 @@ logging.basicConfig(
 logger = logging.getLogger("market_worker")
 
 
+def is_market_hours() -> bool:
+    """Check if Indian stock market is currently open (IST 9:15-15:30, Mon-Fri)."""
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    if now.weekday() >= 5:  # Saturday=5, Sunday=6
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
 async def get_engine_and_session():
     engine = create_async_engine(settings.DATABASE_URL, echo=False)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -57,7 +68,8 @@ async def fetch_and_store_prices(session: AsyncSession) -> dict[str, float]:
 
     benchmark = settings.NIFTY_SYMBOL
     vix = settings.INDIA_VIX_SYMBOL
-    all_symbols = list(set(symbols + [benchmark, vix]))
+    macro_symbols = ["CL=F", "USDINR=X", "^TNX", "GC=F"]
+    all_symbols = list(set(symbols + [benchmark, vix] + macro_symbols))
 
     if not all_symbols:
         logger.warning("No symbols found in holdings.")
@@ -148,7 +160,7 @@ async def compute_risk_all_portfolios(session: AsyncSession) -> int:
     """Run risk computation for every portfolio that has holdings."""
     stmt = (
         select(Portfolio)
-        .options(selectinload(Portfolio.holdings))
+        .options(selectinload(Portfolio.holdings), selectinload(Portfolio.owner))
     )
     result = await session.execute(stmt)
     portfolios = list(result.scalars().all())
@@ -177,13 +189,16 @@ async def compute_risk_all_portfolios(session: AsyncSession) -> int:
                 for signal in report.early_warning_signals:
                     logger.warning("  ALERT [%s]: %s", portfolio.name, signal)
 
-            # Send alerts (email + webhook) if risk level qualifies
+            # Send alerts (email + webhook + WhatsApp) if risk level qualifies
+            owner = portfolio.owner
             await send_alerts(
                 portfolio_name=portfolio.name,
                 portfolio_id=str(portfolio.id),
                 risk_level=report.risk_level.value,
                 composite_score=report.composite_score,
                 signals=report.early_warning_signals,
+                user_phone=getattr(owner, "phone_number", None) if owner else None,
+                whatsapp_enabled=getattr(owner, "whatsapp_alerts_enabled", False) if owner else False,
             )
 
             # Notify WebSocket clients via API (fail silently if API not running)
@@ -239,21 +254,27 @@ async def run_once():
     logger.info("=" * 60)
 
 
-async def run_loop(interval: int):
-    """Continuous loop: run every `interval` seconds."""
+async def run_loop(interval: int | None = None):
+    """Continuous loop with dynamic interval based on market hours."""
     while True:
         try:
             await run_once()
         except Exception as e:
             logger.error("Worker loop error: %s", e)
-        logger.info("Sleeping %d seconds until next run...", interval)
-        await asyncio.sleep(interval)
+        if interval is not None:
+            sleep_secs = interval
+        elif is_market_hours():
+            sleep_secs = settings.INTRADAY_INTERVAL
+        else:
+            sleep_secs = settings.EOD_INTERVAL
+        logger.info("Sleeping %d seconds until next run... (market_hours=%s)", sleep_secs, is_market_hours())
+        await asyncio.sleep(sleep_secs)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Market Data Worker")
     parser.add_argument("--loop", action="store_true", help="Run continuously in a loop")
-    parser.add_argument("--interval", type=int, default=3600, help="Seconds between runs (default: 3600)")
+    parser.add_argument("--interval", type=int, default=None, help="Fixed seconds between runs (omit for dynamic market-hours interval)")
     args = parser.parse_args()
 
     if args.loop:

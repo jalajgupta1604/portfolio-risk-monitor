@@ -22,3 +22,12 @@ class UserResponse(BaseModel):
     email: str
     full_name: str | None
     created_at: datetime
+    phone_number: str | None = None
+    whatsapp_alerts_enabled: bool = False
+    subscription_tier: str = "free"
+    subscription_expires_at: datetime | None = None
+
+
+class UserSettingsUpdate(BaseModel):
+    phone_number: str | None = None
+    whatsapp_alerts_enabled: bool | None = None

@@ -19,3 +19,6 @@ kiteconnect>=5.0.0
 cryptography>=42.0.0
 pdfplumber>=0.11.0
 openpyxl>=3.1.0
+twilio>=9.0.0
+anthropic>=0.39.0
+weasyprint>=62.0

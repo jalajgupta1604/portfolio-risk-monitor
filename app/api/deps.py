@@ -1,5 +1,6 @@
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -8,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models.user import User
+from app.schemas.payment import TIER_ORDER
 from app.services import AuthService, BrokerService, PortfolioService, RiskService
+from app.services.payment_service import PaymentService
 
 DBSession = Annotated[AsyncSession, Depends(get_session)]
 
@@ -56,6 +59,40 @@ async def get_broker_service(
     yield BrokerService(session)
 
 
+async def get_payment_service(
+    session: DBSession,
+) -> AsyncGenerator[PaymentService, None]:
+    yield PaymentService(session)
+
+
 PortfolioServiceDep = Annotated[PortfolioService, Depends(get_portfolio_service)]
 RiskServiceDep = Annotated[RiskService, Depends(get_risk_service)]
 BrokerServiceDep = Annotated[BrokerService, Depends(get_broker_service)]
+PaymentServiceDep = Annotated[PaymentService, Depends(get_payment_service)]
+
+
+def require_tier(min_tier: str) -> Callable:
+    """Dependency factory that enforces a minimum subscription tier."""
+
+    async def _check(current_user: CurrentUser) -> User:
+        user_tier = getattr(current_user, "subscription_tier", "free") or "free"
+        user_order = TIER_ORDER.get(user_tier, 0)
+        min_order = TIER_ORDER.get(min_tier, 0)
+
+        if user_order < min_order:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This feature requires '{min_tier}' tier or above. Current tier: '{user_tier}'.",
+            )
+
+        # Check expiry
+        expires = getattr(current_user, "subscription_expires_at", None)
+        if expires and expires < datetime.now(timezone.utc) and user_tier != "free":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your subscription has expired.",
+            )
+
+        return current_user
+
+    return _check

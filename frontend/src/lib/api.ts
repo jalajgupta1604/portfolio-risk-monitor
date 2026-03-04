@@ -14,6 +14,7 @@ import {
   CsvImportResponse,
   SyncResponse,
   AutoSyncResponse,
+  User,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -81,6 +82,9 @@ async function requestFormData<T>(path: string, formData: FormData): Promise<T> 
 
 // Portfolio endpoints
 export const api = {
+  // Auth
+  getMe: () => request<User>("/auth/me"),
+
   listPortfolios: () => request<PortfolioSummary[]>("/portfolios"),
 
   getPortfolio: (id: string) => request<PortfolioResponse>(`/portfolios/${id}`),
@@ -152,4 +156,41 @@ export const api = {
 
   autoSync: () =>
     request<AutoSyncResponse>("/brokers/auto-sync", { method: "POST" }),
+
+  // User settings
+  updateSettings: (data: { phone_number?: string; whatsapp_alerts_enabled?: boolean }) =>
+    request<User>("/auth/settings", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  // Subscription / Payments
+  getSubscriptionStatus: () =>
+    request<{ tier: string; expires_at: string | null; active: boolean }>("/payments/status"),
+
+  createCheckout: (tier: string) =>
+    request<{ subscription_id: string; short_url: string }>("/payments/checkout", {
+      method: "POST",
+      body: JSON.stringify({ tier }),
+    }),
+
+  // Reports
+  downloadWeeklyReport: async (portfolioId: string) => {
+    if (!_backendToken) {
+      await Promise.race([_tokenReady, new Promise((r) => setTimeout(r, 5000))]);
+    }
+    const headers: Record<string, string> = {};
+    if (_backendToken) {
+      headers["Authorization"] = `Bearer ${_backendToken}`;
+    }
+    const res = await fetch(`${API_BASE}/reports/${portfolioId}/weekly`, { headers });
+    if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `risk-report-${portfolioId.slice(0, 8)}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
 };

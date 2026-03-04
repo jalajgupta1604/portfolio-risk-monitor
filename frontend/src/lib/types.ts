@@ -1,9 +1,16 @@
+// Subscription types
+export type SubscriptionTier = "free" | "paid" | "premium";
+
 // Auth types
 export interface User {
   id: string;
   email: string;
   full_name: string | null;
   created_at: string;
+  phone_number: string | null;
+  whatsapp_alerts_enabled: boolean;
+  subscription_tier: SubscriptionTier;
+  subscription_expires_at: string | null;
 }
 
 // Portfolio types
@@ -60,6 +67,13 @@ export interface StressResult {
   estimated_loss: number;
 }
 
+export interface HedgeSuggestion {
+  etf_symbol: string;
+  etf_name: string;
+  rationale: string;
+  suggested_allocation_pct: number;
+}
+
 export interface RiskReport {
   portfolio_id: string;
   computed_at: string;
@@ -79,6 +93,9 @@ export interface RiskReport {
   sector_allocation: Record<string, number>;
   sector_concentration: number;
   india_vix: number | null;
+  risk_explanation: string | null;
+  macro_sensitivities: Record<string, number> | null;
+  hedge_suggestions: HedgeSuggestion[] | null;
 }
 
 export interface RiskHistoryEntry {

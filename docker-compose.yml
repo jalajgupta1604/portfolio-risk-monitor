@@ -29,6 +29,15 @@ services:
       KITE_API_SECRET: ${KITE_API_SECRET:-}
       KITE_REDIRECT_URL: ${KITE_REDIRECT_URL:-http://localhost:3000/brokers/zerodha/callback}
       BROKER_TOKEN_ENCRYPTION_KEY: ${BROKER_TOKEN_ENCRYPTION_KEY:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_PLAN_ID_PAID: ${RAZORPAY_PLAN_ID_PAID:-}
+      RAZORPAY_PLAN_ID_PREMIUM: ${RAZORPAY_PLAN_ID_PREMIUM:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -41,13 +50,32 @@ services:
       DATABASE_URL: postgresql+asyncpg://riskadmin:riskpass123@db:5432/portfolio_risk
       DATABASE_URL_SYNC: postgresql+psycopg2://riskadmin:riskpass123@db:5432/portfolio_risk
       API_BASE_URL: http://app:8000
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
     depends_on:
       db:
         condition: service_healthy
       app:
         condition: service_started
-    command: python -m scripts.market_worker --loop --interval 3600
+    command: python -m scripts.market_worker --loop
     restart: unless-stopped
+
+  weekly-report:
+    build: .
+    profiles: [weekly]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://riskadmin:riskpass123@db:5432/portfolio_risk
+      DATABASE_URL_SYNC: postgresql+psycopg2://riskadmin:riskpass123@db:5432/portfolio_risk
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python -m scripts.weekly_report
 
   frontend:
     build: ./frontend

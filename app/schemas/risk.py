@@ -25,6 +25,13 @@ class CorrelationEntry(BaseModel):
     correlation: float
 
 
+class HedgeSuggestionResponse(BaseModel):
+    etf_symbol: str
+    etf_name: str
+    rationale: str
+    suggested_allocation_pct: float
+
+
 class RiskReportResponse(BaseModel):
     portfolio_id: uuid.UUID
     computed_at: datetime
@@ -44,6 +51,9 @@ class RiskReportResponse(BaseModel):
     sector_allocation: dict[str, float] = Field(default_factory=dict, description="Sector-wise allocation weights")
     sector_concentration: float = Field(default=0.0, description="Sector concentration score 0-100")
     india_vix: float | None = Field(default=None, description="India VIX level")
+    risk_explanation: str | None = Field(default=None, description="AI-generated risk narrative")
+    macro_sensitivities: dict[str, float] | None = Field(default=None, description="Macro factor correlations")
+    hedge_suggestions: list[HedgeSuggestionResponse] | None = Field(default=None, description="Smart hedge suggestions")
 
 
 class RiskHistoryEntry(BaseModel):

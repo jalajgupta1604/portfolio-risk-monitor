@@ -9,7 +9,9 @@ from app.config import settings
 from app.models import RiskSnapshot
 from app.repositories import PortfolioRepository, PriceHistoryRepository, RiskSnapshotRepository
 from app.risk_engine import RiskComputationInput, RiskEngine
-from app.schemas.risk import RiskHistoryEntry, RiskHistoryResponse, RiskReportResponse
+from app.risk_engine.hedge import compute_hedge_suggestions
+from app.risk_engine.macro import MACRO_FACTORS, compute_macro_sensitivities
+from app.schemas.risk import HedgeSuggestionResponse, RiskHistoryEntry, RiskHistoryResponse, RiskReportResponse
 from app.services.stock_service import StockService
 
 logger = logging.getLogger(__name__)
@@ -157,6 +159,53 @@ class RiskService:
                 f"VIX SPIKE: India VIX at {india_vix:.1f} — exceeds {settings.VIX_SPIKE_THRESHOLD:.0f} threshold"
             )
 
+        # Macro sensitivities (best-effort)
+        macro_sensitivities: dict[str, float] | None = None
+        try:
+            portfolio_returns = np.diff(np.log(
+                np.sum(price_matrix * weights, axis=1)
+            ))
+            factor_series: dict[str, np.ndarray] = {}
+            for macro_sym in MACRO_FACTORS:
+                macro_prices = await self.price_repo.get_prices(macro_sym)
+                if len(macro_prices) >= 3:
+                    factor_series[macro_sym] = np.array([p.close for p in macro_prices[-min_len:]])
+                else:
+                    # Try fetching from yfinance
+                    try:
+                        records = await StockService.fetch_history(macro_sym, period="3mo")
+                        if records and len(records) >= 3:
+                            factor_series[macro_sym] = np.array([r["close"] for r in records[-min_len:]])
+                    except Exception:
+                        pass
+
+            if factor_series and len(portfolio_returns) > 5:
+                macro_sensitivities = compute_macro_sensitivities(
+                    portfolio_returns, factor_series, window=settings.ROLLING_WINDOW
+                )
+        except Exception:
+            logger.warning("Failed to compute macro sensitivities")
+
+        # Hedge suggestions
+        hedge_suggestions: list[HedgeSuggestionResponse] | None = None
+        try:
+            raw_suggestions = compute_hedge_suggestions(
+                beta=result.beta,
+                downside_beta=result.downside_beta_val,
+                volatility=result.rolling_volatility,
+                sector_allocation=sector_allocation,
+                sector_concentration=result.sector_concentration,
+                composite_score=result.composite_score,
+                var_95=result.var_95_pct,
+                holdings_symbols=symbols,
+            )
+            if raw_suggestions:
+                hedge_suggestions = [
+                    HedgeSuggestionResponse(**s) for s in raw_suggestions
+                ]
+        except Exception:
+            logger.warning("Failed to compute hedge suggestions")
+
         return RiskReportResponse(
             portfolio_id=portfolio_id,
             computed_at=snapshot.computed_at,
@@ -176,6 +225,8 @@ class RiskService:
             sector_allocation=sector_allocation,
             sector_concentration=result.sector_concentration,
             india_vix=india_vix,
+            macro_sensitivities=macro_sensitivities,
+            hedge_suggestions=hedge_suggestions,
         )
 
     async def get_risk_history(

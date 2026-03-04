@@ -96,23 +96,62 @@ async def send_webhook_alert(
         logger.info("Webhook sent → %s (status %d)", settings.WEBHOOK_URL, resp.status_code)
 
 
+async def send_whatsapp_alert(
+    portfolio_name: str,
+    risk_level: str,
+    composite_score: float,
+    signals: list[str],
+    user_phone: str,
+) -> None:
+    """Send a WhatsApp message via Twilio (runs in executor to avoid blocking)."""
+    if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN or not user_phone:
+        return
+
+    body = (
+        f"*Risk Alert: {portfolio_name}*\n"
+        f"Level: {risk_level} | Score: {composite_score:.1f}/100\n"
+    )
+    if signals:
+        body += "Warnings:\n" + "\n".join(f"- {s}" for s in signals[:5])
+
+    def _send() -> None:
+        from twilio.rest import Client
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        client.messages.create(
+            body=body,
+            from_=f"whatsapp:{settings.TWILIO_WHATSAPP_FROM}",
+            to=f"whatsapp:{user_phone}",
+        )
+
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _send)
+    logger.info("WhatsApp alert sent to %s", user_phone)
+
+
 async def send_alerts(
     portfolio_name: str,
     portfolio_id: str,
     risk_level: str,
     composite_score: float,
     signals: list[str],
+    user_phone: str | None = None,
+    whatsapp_enabled: bool = False,
 ) -> None:
-    """Send email + webhook alerts concurrently, gated on risk level."""
+    """Send email + webhook + WhatsApp alerts concurrently, gated on risk level."""
     allowed = [l.strip() for l in settings.ALERT_ON_RISK_LEVELS.split(",") if l.strip()]
     if risk_level not in allowed:
         return
 
-    results = await asyncio.gather(
+    tasks = [
         send_email_alert(portfolio_name, risk_level, composite_score, signals),
         send_webhook_alert(portfolio_name, portfolio_id, risk_level, composite_score, signals),
-        return_exceptions=True,
-    )
+    ]
+    if whatsapp_enabled and user_phone:
+        tasks.append(
+            send_whatsapp_alert(portfolio_name, risk_level, composite_score, signals, user_phone)
+        )
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
     for r in results:
         if isinstance(r, Exception):
             logger.error("Alert delivery failed: %s", r)
